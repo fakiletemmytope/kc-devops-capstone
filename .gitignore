@@ -1,0 +1,66 @@
+# -------------------------
+# React (Frontend)
+# -------------------------
+node_modules/
+build/
+dist/
+.cache/
+coverage/
+*.log
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# -------------------------
+# FastAPI (Backend)
+# -------------------------
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+db.sqlite3
+.env
+.venv/
+venv/
+env/
+instance/
+.mypy_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+
+# -------------------------
+# Terraform
+# -------------------------
+# Local .terraform directories
+**/.terraform/*
+
+# .tfstate files
+*.tfstate
+*.tfstate.*
+
+# Crash log files
+crash.log
+crash.*.log
+
+# Ignore override files as they are usually local
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Include only if you don’t want .terraform.lock.hcl committed
+.terraform.lock.hcl
+
+# -------------------------
+# OS / Editor Junk
+# -------------------------
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
