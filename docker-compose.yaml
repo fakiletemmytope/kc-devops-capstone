@@ -1,0 +1,41 @@
+services:
+  frontend:
+    image: temmytope/kc-capstone-fe:latest
+    ports:
+      - "80:80"
+    environment:
+      - REACT_APP_API_URL=http://backend:3001
+    networks:
+      - dreamvacations-net
+
+  backend:
+    image: temmytope/kc-capstone-be
+    ports:
+      - "3001:3001"
+    networks:
+      - dreamvacations-net
+    environment:
+      - DATABASE_USER=${DATABASE_USER}
+      - DATABASE_PASSWD=${DATABASE_PASSWD}
+      - DATABASE_URL=postgresql://${DATABASE_USER}:${DATABASE_PASSWD}@database:5432/dreamvacations
+      - PORT=3001
+      - COUNTRIES_API_BASE_URL=https://restcountries.com/v3.1
+
+  database:
+    image: postgres:latest
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_PASSWORD=${DATABASE_PASSWD}
+      - POSTGRES_DB=dreamvacations
+      - POSTGRES_USER=${DATABASE_USER}
+    networks:
+      - dreamvacations-net
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+
+volumes:
+  pg-data:
+
+networks:
+  dreamvacations-net:

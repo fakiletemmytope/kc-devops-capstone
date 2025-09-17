@@ -1,0 +1,44 @@
+---
+name: Frontend CI
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/frontend.yaml"
+  pull_request:
+    branches: [dev]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/**"
+  workflow_dispatch:
+
+env:
+  IMAGE_NAME: temmytope/kc-capstone-fe
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: github/super-linter@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VALIDATE_ALL_CODEBASE: true
+          VALIDATE_JAVASCRIPT_ES: true
+          DEFAULT_BRANCH: dev
+
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.IMAGE_NAME }}:latest
