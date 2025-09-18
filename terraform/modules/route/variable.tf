@@ -6,6 +6,6 @@ variable "domain_name" {
     type = string
 }
 
-variable "ec2_public_id" {
+variable "ec2_public_ip" {
     type = string
 }

@@ -32,7 +32,7 @@ module "my_route53" {
   source = "./modules/route"
   subdomain = "dream"
   domain_name = "temmytope.online"
-  ec2_public_ip = module.my_instance.public_id
+  ec2_public_ip = module.my_instance.public_ip
 }
 
 
