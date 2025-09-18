@@ -32,8 +32,11 @@ module "my_route53" {
   source = "./modules/route"
   subdomain = "dream"
   domain_name = "temmytope.online"
-
+  ec2_public_ip = module.my_instance.public_id
 }
+
+
+
 # Outputs for deployment workflow
 output "ec2_public_ip" {
   description = "Public IP address of the EC2 instance"
@@ -59,3 +62,13 @@ output "subnet_id" {
   value       = module.my_networking.subnet_id
 }
 
+
+output "fqdn" {
+  description = "Route53 record fqdn"
+  value = module.my_route53.fqdn
+}
+
+output "fqdn" {
+  description = "Route53 record dns name"
+  value = module.my_route53.dns_name
+}

@@ -2,6 +2,10 @@ variable "subdomain" {
     type = string
 }
 
-varibale "domain_name" {
+varible "domain_name" {
+    type = string
+}
+
+variable "ec2_public_id" {
     type = string
 }
