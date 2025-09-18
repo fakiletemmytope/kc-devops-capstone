@@ -2,7 +2,7 @@ variable "subdomain" {
     type = string
 }
 
-varible "domain_name" {
+variable "domain_name" {
     type = string
 }
 

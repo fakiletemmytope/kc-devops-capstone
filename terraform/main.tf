@@ -68,7 +68,7 @@ output "fqdn" {
   value = module.my_route53.fqdn
 }
 
-output "fqdn" {
+output "dns_name" {
   description = "Route53 record dns name"
   value = module.my_route53.dns_name
 }
