@@ -8,21 +8,14 @@ sudo apt-get upgrade -y
 # Install Apache for Certbot validation
 sudo apt-get install -y apache2
 
-# ENABLE REQUIRED APACHE MODULES FIRST - IN THE CORRECT ORDER
-sudo a2enmod rewrite
-sudo a2enmod ssl
-sudo a2enmod proxy
-sudo a2enmod proxy_http
+# ENABLE REQUIRED APACHE MODULES FIRST
+sudo a2enmod rewrite ssl proxy proxy_http
 
-# Create TEMPORARY Apache config without SSL (for initial Certbot setup)
+# Create TEMPORARY Apache config for initial setup
 sudo tee /etc/apache2/sites-available/dream-site.conf > /dev/null << 'EOL'
 <VirtualHost *:80>
     ServerName dream.temmytope.online
-    ServerAlias www.dream.temmytope.online
     DocumentRoot /var/www/html
-    
-    # For Certbot validation - use simple redirect without rewrite module
-    Redirect permanent / https://dream.temmytope.online/
     
     <Directory /var/www/html>
         Options -Indexes +FollowSymLinks
@@ -35,18 +28,14 @@ EOL
 # Enable site and restart Apache
 sudo a2dissite 000-default.conf 2>/dev/null || true
 sudo a2ensite dream-site.conf
-
-# Test Apache configuration first
 sudo apache2ctl configtest
-
-# Start Apache (should work now with simple config)
 sudo systemctl restart apache2
 sudo systemctl enable apache2
 
 # Install Certbot
 sudo apt-get install -y certbot python3-certbot-apache
 
-# Function to retry Certbot with exponential backoff
+# Function to retry Certbot
 install_ssl_certificate() {
     local max_attempts=12
     local attempt=1
@@ -69,54 +58,43 @@ install_ssl_certificate() {
     done
     
     echo "Failed to obtain SSL certificate after $max_attempts attempts"
-    echo "Run manually: sudo certbot --apache -d dream.temmytope.online"
     return 1
 }
 
-# Wait for DNS propagation and try Certbot
+# Wait for DNS propagation
 echo "Waiting for DNS propagation (30 seconds)..."
 sleep 30
 
-# Install SSL certificate with retries
+# Install SSL certificate
 if install_ssl_certificate; then
     echo "✅ SSL certificate installed successfully!"
     
-    # NOW create the final Apache config with SSL and rewrite rules
-    sudo tee /etc/apache2/sites-available/dream-site.conf > /dev/null << 'EOL'
-<VirtualHost *:80>
-    ServerName dream.temmytope.online
-    ServerAlias www.dream.temmytope.online
-    
-    # Use Redirect instead of RewriteRule (doesn't require rewrite module)
-    Redirect permanent / https://dream.temmytope.online/
-</VirtualHost>
+    # NOW MODIFY THE CERTBOT-GENERATED CONFIG (don't overwrite it!)
+    # Add Docker proxy to the existing Certbot SSL config
+    sudo tee -a /etc/apache2/sites-available/dream-site-le-ssl.conf > /dev/null << 'EOL'
 
-<VirtualHost *:443>
-    ServerName dream.temmytope.online
-    ServerAlias www.dream.temmytope.online
-    
-    SSLEngine on
-    SSLCertificateFile /etc/letsencrypt/live/dream.temmytope.online/fullchain.pem
-    SSLCertificateKeyFile /etc/letsencrypt/live/dream.temmytope.online/privkey.pem
-    
-    # Proxy all requests to Docker application
+    # Docker proxy configuration (added by script)
     ProxyPreserveHost On
     ProxyPass / http://localhost:3000/
     ProxyPassReverse / http://localhost:3000/
     
-    # Additional proxy settings
     <Proxy *>
         Require all granted
     </Proxy>
+EOL
+
+    # Also update the non-SSL config to redirect properly
+    sudo tee /etc/apache2/sites-available/dream-site.conf > /dev/null << 'EOL'
+<VirtualHost *:80>
+    ServerName dream.temmytope.online
+    Redirect permanent / https://dream.temmytope.online/
 </VirtualHost>
 EOL
 
-    # Test configuration again
+    # Test configuration and restart
     sudo apache2ctl configtest
-    
-    # Restart Apache with final config
     sudo systemctl restart apache2
-    echo "🎉 Apache configured with SSL successfully!"
+    echo "🎉 Apache configured with SSL and Docker proxy successfully!"
 else
     echo "⚠️ SSL setup failed, but Apache is running with basic config"
 fi
