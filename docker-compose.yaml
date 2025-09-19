@@ -2,7 +2,7 @@ services:
   frontend:
     image: temmytope/kc-capstone-fe:latest
     ports:
-      - "80:80"
+      - "3000:80"
     environment:
       - REACT_APP_API_URL=http://backend:3001
     networks:
