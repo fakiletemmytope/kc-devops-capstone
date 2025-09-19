@@ -5,7 +5,45 @@ set -xe
 sudo apt-get update -y
 sudo apt-get upgrade -y
 
-# Install Certbot (Apache might already be installed from user data)
+# Install Apache for Certbot validation
+sudo apt-get install -y apache2
+
+# ENABLE REQUIRED APACHE MODULES FIRST - IN THE CORRECT ORDER
+sudo a2enmod rewrite
+sudo a2enmod ssl
+sudo a2enmod proxy
+sudo a2enmod proxy_http
+
+# Create TEMPORARY Apache config without SSL (for initial Certbot setup)
+sudo tee /etc/apache2/sites-available/dream-site.conf > /dev/null << 'EOL'
+<VirtualHost *:80>
+    ServerName dream.temmytope.online
+    ServerAlias www.dream.temmytope.online
+    DocumentRoot /var/www/html
+    
+    # For Certbot validation - use simple redirect without rewrite module
+    Redirect permanent / https://dream.temmytope.online/
+    
+    <Directory /var/www/html>
+        Options -Indexes +FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+</VirtualHost>
+EOL
+
+# Enable site and restart Apache
+sudo a2dissite 000-default.conf 2>/dev/null || true
+sudo a2ensite dream-site.conf
+
+# Test Apache configuration first
+sudo apache2ctl configtest
+
+# Start Apache (should work now with simple config)
+sudo systemctl restart apache2
+sudo systemctl enable apache2
+
+# Install Certbot
 sudo apt-get install -y certbot python3-certbot-apache
 
 # Function to retry Certbot with exponential backoff
@@ -17,15 +55,11 @@ install_ssl_certificate() {
     while [ $attempt -le $max_attempts ]; do
         echo "Attempt $attempt: Trying to obtain SSL certificate..."
         
-        # Stop Apache temporarily for standalone mode
-        sudo systemctl stop apache2
-        
-        # Use standalone mode - more reliable
-        if sudo certbot certonly --standalone --non-interactive --agree-tos --email admin@temmytope.online \
+        if sudo certbot --apache --non-interactive --agree-tos --email admin@temmytope.online \
             -d dream.temmytope.online \
-            -d www.dream.temmytope.online; then
+            -d www.dream.temmytope.online \
+            --redirect; then
             echo "SSL certificate obtained successfully!"
-            sudo systemctl start apache2
             return 0
         fi
         
@@ -36,7 +70,7 @@ install_ssl_certificate() {
     done
     
     echo "Failed to obtain SSL certificate after $max_attempts attempts"
-    echo "Run manually: sudo certbot certonly --standalone -d dream.temmytope.online -d www.dream.temmytope.online"
+    echo "Run manually: sudo certbot --apache -d dream.temmytope.online -d www.dream.temmytope.online"
     return 1
 }
 
@@ -46,13 +80,15 @@ sleep 30
 
 # Install SSL certificate with retries
 if install_ssl_certificate; then
-    echo "✅ SSL certificate setup completed successfully!"
+    echo "✅ SSL certificate installed successfully!"
     
-    # Now configure Apache with the obtained certificates
-    sudo cat > /etc/apache2/sites-available/dream-site.conf << 'EOL'
+    # NOW create the final Apache config with SSL and rewrite rules
+    sudo tee /etc/apache2/sites-available/dream-site.conf > /dev/null << 'EOL'
 <VirtualHost *:80>
     ServerName dream.temmytope.online
     ServerAlias www.dream.temmytope.online
+    
+    # Use Redirect instead of RewriteRule (doesn't require rewrite module)
     Redirect permanent / https://dream.temmytope.online/
 </VirtualHost>
 
@@ -64,24 +100,24 @@ if install_ssl_certificate; then
     SSLCertificateFile /etc/letsencrypt/live/dream.temmytope.online/fullchain.pem
     SSLCertificateKeyFile /etc/letsencrypt/live/dream.temmytope.online/privkey.pem
     
+    # Proxy all requests to Docker application
     ProxyPreserveHost On
     ProxyPass / http://localhost:3000/
     ProxyPassReverse / http://localhost:3000/
     
+    # Additional proxy settings
     <Proxy *>
         Require all granted
     </Proxy>
 </VirtualHost>
 EOL
 
-    # Enable site and restart Apache
-    sudo a2enmod ssl proxy proxy_http rewrite
-    sudo a2dissite 000-default.conf 2>/dev/null || true
-    sudo a2ensite dream-site.conf
-    sudo systemctl restart apache2
+    # Test configuration again
+    sudo apache2ctl configtest
     
+    # Restart Apache with final config
+    sudo systemctl restart apache2
     echo "🎉 Apache configured with SSL successfully!"
 else
-    echo "⚠️ SSL setup failed, but continuing..."
-    sudo systemctl start apache2  # Ensure Apache is running
+    echo "⚠️ SSL setup failed, but Apache is running with basic config"
 fi
