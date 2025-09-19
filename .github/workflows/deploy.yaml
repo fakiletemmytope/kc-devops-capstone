@@ -70,7 +70,7 @@ jobs:
           host: ${{ needs.terraform.outputs.ec2_public_dns }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: "backend/*,frontend/*,docker-compose.yaml"
+          source: "backend/*,frontend/*,docker-compose.yaml, scripts/*"
           target: "/home/${{ secrets.EC2_USER }}/dream-app"
 
       - name: Create .env on EC2
@@ -95,4 +95,9 @@ jobs:
             cd /home/${{ secrets.EC2_USER }}/dream-app
             docker compose pull
             docker compose up -d --build
+
+            cd /home/${{ secrets.EC2_USER }}/dream-app/scripts
+            chmod u+x certbot-config.sh
+            ./certbot-config.sh
+
 

@@ -18,6 +18,7 @@ module "my_instance" {
   subnet_id     = module.my_networking.subnet_id
   key_name      = "CN-class"
   vpc_id        = module.my_networking.vpc_id
+  domain_name   = "temmytope.online"
 }
 
 
@@ -29,9 +30,9 @@ module "my_cloudwatch" {
 }
 
 module "my_route53" {
-  source = "./modules/route"
-  subdomain = "dream"
-  domain_name = "temmytope.online"
+  source        = "./modules/route"
+  subdomain     = "dream"
+  domain_name   = "temmytope.online"
   ec2_public_ip = module.my_instance.public_ip
 }
 
@@ -65,10 +66,10 @@ output "subnet_id" {
 
 output "fqdn" {
   description = "Route53 record fqdn"
-  value = module.my_route53.fqdn
+  value       = module.my_route53.fqdn
 }
 
 output "dns_name" {
   description = "Route53 record dns name"
-  value = module.my_route53.dns_name
+  value       = module.my_route53.dns_name
 }
