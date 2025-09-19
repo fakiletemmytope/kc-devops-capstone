@@ -57,7 +57,6 @@ install_ssl_certificate() {
         
         if sudo certbot --apache --non-interactive --agree-tos --email admin@temmytope.online \
             -d dream.temmytope.online \
-            -d www.dream.temmytope.online \
             --redirect; then
             echo "SSL certificate obtained successfully!"
             return 0
