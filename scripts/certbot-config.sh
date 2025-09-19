@@ -70,7 +70,7 @@ install_ssl_certificate() {
     done
     
     echo "Failed to obtain SSL certificate after $max_attempts attempts"
-    echo "Run manually: sudo certbot --apache -d dream.temmytope.online -d www.dream.temmytope.online"
+    echo "Run manually: sudo certbot --apache -d dream.temmytope.online"
     return 1
 }
 
