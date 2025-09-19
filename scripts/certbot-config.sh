@@ -2,14 +2,14 @@
 set -xe
 
 # Update packages
-apt-get update -y
-apt-get upgrade -y
+sudo apt-get update -y
+sudo apt-get upgrade -y
 
 # Install Apache for Certbot validation
-apt-get install -y apache2
+sudo apt-get install -y apache2
 
 # Configure Apache for your domain
-cat > /etc/apache2/sites-available/dream-site.conf << 'EOL'
+sudo cat > /etc/apache2/sites-available/dream-site.conf << 'EOL'
 <VirtualHost *:80>
     ServerName dream.temmytope.online
     ServerAlias www.dream.temmytope.online
@@ -44,13 +44,13 @@ cat > /etc/apache2/sites-available/dream-site.conf << 'EOL'
 EOL
 
 # Enable site and restart Apache
-a2dissite 000-default.conf 2>/dev/null || true
-a2ensite dream-site.conf
-systemctl restart apache2
-systemctl enable apache2
+sudo a2dissite 000-default.conf 2>/dev/null || true
+sudo a2ensite dream-site.conf
+sudo systemctl restart apache2
+sudo systemctl enable apache2
 
 # Install Certbot
-apt-get install -y certbot python3-certbot-apache
+sudo apt-get install -y certbot python3-certbot-apache
 
 # Function to retry Certbot with exponential backoff
 install_ssl_certificate() {

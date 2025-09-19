@@ -99,5 +99,14 @@ jobs:
             cd /home/${{ secrets.EC2_USER }}/dream-app/scripts
             chmod u+x certbot-config.sh
             ./certbot-config.sh
-
+      - name: SSH to EC2 and configure certbot
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ needs.terraform.outputs.ec2_public_dns }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd /home/${{ secrets.EC2_USER }}/dream-app/scripts
+            chmod u+x certbot-config.sh
+            
 
