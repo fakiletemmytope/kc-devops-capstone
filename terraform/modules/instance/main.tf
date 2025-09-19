@@ -10,12 +10,7 @@ resource "aws_instance" "ec2" {
   associate_public_ip_address = true
   vpc_security_group_ids = [aws_security_group.ec2_sg.id]
   
-  user_data = templatefile("${path.module}/script/user_data.sh", {
-    domain_name = var.domain_name
-    ec2_name    = var.ec2_name
-  })
-
-
+  user_data = file("${path.module}/script/user_data.sh")
 }
 
 resource "aws_security_group" "ec2_sg" {
