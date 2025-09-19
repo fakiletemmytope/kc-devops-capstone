@@ -9,6 +9,7 @@ on:
       - ".github/workflows/deploy.yaml"
       - "backend/**"
       - "frontend/**"
+      - "scripts/**"
       - "docker-compose.yaml"
   pull_request:
     branches: [dev]
