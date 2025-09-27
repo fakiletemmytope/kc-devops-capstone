@@ -63,10 +63,10 @@ jobs:
             - name: Validate Terraform outputs
               run: |
                   if [ -z "${{ steps.save-outputs.outputs.ec2_public_dns }}" ]; then
-                    echo "❌ Error: EC2 public DNS not found in Terraform outputs"
+                    echo "Error: EC2 public DNS not found in Terraform outputs"
                     exit 1
                   fi
-                  echo "✅ Terraform outputs validated successfully"
+                  echo "Terraform outputs validated successfully"
 
     deploy:
         needs: terraform
@@ -79,13 +79,13 @@ jobs:
             # Wait for EC2 instance to accept SSH connections
             - name: Wait for EC2 SSH
               run: |
-                  echo "⏳ Waiting for SSH connection to ${{ needs.terraform.outputs.ec2_public_dns }}"
+                  echo "Waiting for SSH connection to ${{ needs.terraform.outputs.ec2_public_dns }}"
                   for i in {1..20}; do
                     if nc -z ${{ needs.terraform.outputs.ec2_public_dns }} 22; then
-                      echo "✅ SSH port is ready!"
+                      echo "SSH port is ready!"
                       exit 0
                     fi
-                    echo "⏳ Waiting for SSH... (attempt $i/20)"
+                    echo "Waiting for SSH... (attempt $i/20)"
                     sleep 15
                   done
                   echo "❌ EC2 did not become reachable via SSH in time"
@@ -119,7 +119,7 @@ jobs:
                         exit 1
                       fi
 
-                      echo "📁 Contents of dream-app directory:"
+                      echo "Contents of dream-app directory:"
                       ls -la /home/${{ secrets.EC2_USER }}/dream-app/
 
                       # Check for required files/directories
@@ -133,11 +133,11 @@ jobs:
                       done
 
                       if [ ${#missing_items[@]} -ne 0 ]; then
-                        echo "❌ Missing items: ${missing_items[*]}"
+                        echo "Missing items: ${missing_items[*]}"
                         exit 1
                       fi
 
-                      echo "✅ All project files successfully copied to EC2"
+                      echo "All project files successfully copied to EC2"
 
             - name: Ensure Docker is installed on EC2
               uses: appleboy/ssh-action@v1.2.2
@@ -150,18 +150,18 @@ jobs:
 
                       # Check Docker
                       if ! command -v docker &>/dev/null; then
-                        echo "⚠️ Docker not found, installing..."
+                        echo "Docker not found, installing..."
                         curl -fsSL https://get.docker.com | sh
                         sudo usermod -aG docker $USER
                         # Reload group membership
                         newgrp docker || true
                       else
-                        echo "✅ Docker already installed"
+                        echo "Docker already installed"
                       fi
 
                       # Check Docker Compose v2 plugin
                       if ! docker compose version &>/dev/null; then
-                        echo "⚠️ Docker Compose plugin not found, installing..."
+                        echo "Docker Compose plugin not found, installing..."
                         sudo mkdir -p /usr/lib/docker/cli-plugins
 
                         # Get latest version
@@ -171,7 +171,7 @@ jobs:
                           -o /usr/lib/docker/cli-plugins/docker-compose
                         sudo chmod +x /usr/lib/docker/cli-plugins/docker-compose
                       else
-                        echo "✅ Docker Compose already installed"
+                        echo "Docker Compose already installed"
                       fi
 
                       # Verify installations
@@ -206,8 +206,8 @@ jobs:
 
                       # Verify .env file was created and has content
                       if [ -f ".env" ] && [ -s ".env" ]; then
-                        echo "✅ Environment file created with secure permissions"
-                        echo "📄 .env file size: $(wc -c < .env) bytes"
+                        echo "Environment file created with secure permissions"
+                        echo ".env file size: $(wc -c < .env) bytes"
                       else
                         echo "❌ Error: .env file not created or is empty"
                         exit 1
@@ -222,7 +222,7 @@ jobs:
                   script: |
                       cd /home/${{ secrets.EC2_USER }}/dream-app
 
-                      echo "📁 Current directory contents:"
+                      echo "Current directory contents:"
                       ls -la
 
                       # Check if docker-compose.yaml exists
@@ -241,18 +241,18 @@ jobs:
                       docker compose pull || true
 
                       # Build and start containers
-                      echo "🚀 Starting Docker containers..."
+                      echo "Starting Docker containers..."
                       docker compose up -d --build
 
                       # Wait for services to be healthy
-                      echo "⏳ Waiting for services to start..."
+                      echo "Waiting for services to start..."
                       sleep 30
 
                       # Check container status
-                      echo "📊 Container status:"
+                      echo "Container status:"
                       docker compose ps
 
-                      echo "✅ Docker deployment completed"
+                      echo "Docker deployment completed"
 
             - name: Setup SSL and Scripts
               uses: appleboy/ssh-action@v1.2.2
@@ -264,19 +264,19 @@ jobs:
                       cd /home/${{ secrets.EC2_USER }}/dream-app/scripts
 
                       # Make scripts executable
-                      chmod u+x certbot-nginx-config.sh || { echo "❌ Failed to make certbot script executable"; exit 1; }
-                      chmod u+x pg-db-backup.sh || { echo "❌ Failed to make backup script executable"; exit 1; }
-                      chmod u+x save_to_s3.py || { echo "❌ Failed to make s3 script executable"; exit 1; }
+                      chmod u+x certbot-nginx-config.sh || { echo "Failed to make certbot script executable"; exit 1; }
+                      chmod u+x pg-db-backup.sh || { echo "Failed to make backup script executable"; exit 1; }
+                      chmod u+x save_to_s3.py || { echo "Failed to make s3 script executable"; exit 1; }
 
-                      echo "✅ Scripts made executable"
+                      echo "Scripts made executable"
 
                       # Run certbot configuration
                       if [ -f "./certbot-nginx-config.sh" ]; then
-                        echo "🔒 Running SSL certificate setup..."
+                        echo "Running SSL certificate setup..."
                         ./certbot-nginx-config.sh
-                        echo "✅ SSL setup completed"
+                        echo "SSL setup completed"
                       else
-                        echo "⚠️ Warning: certbot-nginx-config.sh not found"
+                        echo "Warning: certbot-nginx-config.sh not found"
                       fi
 
             - name: Final Health Check
@@ -288,13 +288,13 @@ jobs:
                   script: |
                       cd /home/${{ secrets.EC2_USER }}/dream-app
 
-                      echo "🔍 Final deployment health check..."
+                      echo "Final deployment health check..."
 
                       # Check if containers are running
                       if docker compose ps | grep -q "Up"; then
-                        echo "✅ Containers are running"
+                        echo "Containers are running"
                       else
-                        echo "❌ Some containers are not running"
+                        echo "Some containers are not running"
                         docker compose ps
                         docker compose logs
                         exit 1
@@ -302,10 +302,10 @@ jobs:
 
                       # Check basic connectivity
                       if curl -f http://localhost >/dev/null 2>&1; then
-                        echo "✅ Application is responding"
+                        echo "Application is responding"
                       else
-                        echo "⚠️ Warning: Application not responding on port 80"
+                        echo "Warning: Application not responding on port 80"
                       fi
 
-                      echo "🎉 Deployment completed successfully!"
-                      echo "🌐 Application URL: http://${{ needs.terraform.outputs.ec2_public_dns }}"
+                      echo "Deployment completed successfully!"
+                      echo "Application URL: http://${{ needs.terraform.outputs.ec2_public_dns }}"
