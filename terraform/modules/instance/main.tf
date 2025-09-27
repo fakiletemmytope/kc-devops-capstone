@@ -5,11 +5,11 @@ resource "aws_instance" "ec2" {
     Name = var.ec2_name
   }
 
-  subnet_id = var.subnet_id
-  key_name = var.key_name
+  subnet_id                   = var.subnet_id
+  key_name                    = var.key_name
   associate_public_ip_address = true
-  vpc_security_group_ids = [aws_security_group.ec2_sg.id]
-  
+  vpc_security_group_ids      = [aws_security_group.ec2_sg.id]
+
   user_data = file("${path.module}/script/user_data.sh")
 }
 
@@ -33,18 +33,18 @@ resource "aws_security_group" "ec2_sg" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-  
+
   ingress {
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-  
+
   egress {
     from_port   = 0
     to_port     = 0
-    protocol    = "-1" 
+    protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
@@ -52,5 +52,3 @@ resource "aws_security_group" "ec2_sg" {
     Name = "ec2-sg"
   }
 }
-
-
