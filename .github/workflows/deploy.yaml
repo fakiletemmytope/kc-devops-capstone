@@ -79,16 +79,42 @@ jobs:
             # Wait for EC2 instance to accept SSH connections
             - name: Wait for EC2 SSH
               run: |
-                  for i in {1..15}; do
+                  echo "Testing SSH connection to ${{ needs.terraform.outputs.ec2_public_dns }}"
+                  for i in {1..20}; do
                     if nc -z ${{ needs.terraform.outputs.ec2_public_dns }} 22; then
                       echo "SSH is ready!"
-                      exit 0
+                      # Additional test - try actual SSH connection
+                      if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i <(echo "${{ secrets.EC2_SSH_KEY }}") ${{ secrets.EC2_USER }}@${{ needs.terraform.outputs.ec2_public_dns }} "echo 'SSH test successful'"; then
+                        echo "SSH authentication successful"
+                        exit 0
+                      else
+                        echo "SSH port open but authentication failed, retrying..."
+                      fi
                     fi
-                    echo "Waiting for SSH... (attempt $i/15)"
+                    echo "Waiting for SSH... (attempt $i/20)"
                     sleep 15
                   done
-                  echo "❌ EC2 did not become reachable via SSH in time"
+                  echo "EC2 did not become reachable via SSH in time"
                   exit 1
+
+            - name: Prepare SSH key
+              run: |
+                  echo "${{ secrets.EC2_SSH_KEY }}" > /tmp/ssh_key
+                  chmod 600 /tmp/ssh_key
+
+            - name: Test SSH connection
+              run: |
+                  ssh -o StrictHostKeyChecking=no -i /tmp/ssh_key ${{ secrets.EC2_USER }}@${{ needs.terraform.outputs.ec2_public_dns }} "whoami && pwd && ls -la"
+
+            - name: Create target directory on EC2
+              uses: appleboy/ssh-action@v1.2.2
+              with:
+                  host: ${{ needs.terraform.outputs.ec2_public_dns }}
+                  username: ${{ secrets.EC2_USER }}
+                  key: ${{ secrets.EC2_SSH_KEY }}
+                  script: |
+                      mkdir -p /home/${{ secrets.EC2_USER }}/dream-app
+                      echo "Target directory created"
 
             - name: Copy project files to EC2
               uses: appleboy/scp-action@v1.0.0
@@ -96,10 +122,12 @@ jobs:
                   host: ${{ needs.terraform.outputs.ec2_public_dns }}
                   username: ${{ secrets.EC2_USER }}
                   key: ${{ secrets.EC2_SSH_KEY }}
-                  source: "backend/*,frontend/*,docker-compose.yaml,scripts/*"
-                  target: "/home/${{ secrets.EC2_USER }}/dream-app"
-                  timeout: "300s"
-                  command_timeout: "5m"
+                  source: "backend,frontend,docker-compose.yaml,scripts"
+                  target: "/home/${{ secrets.EC2_USER }}/dream-app/"
+                  timeout: "600s"
+                  command_timeout: "10m"
+                  strip_components: 0
+                  overwrite: true
 
             - name: Verify file copy
               uses: appleboy/ssh-action@v1.2.2
@@ -108,11 +136,33 @@ jobs:
                   username: ${{ secrets.EC2_USER }}
                   key: ${{ secrets.EC2_SSH_KEY }}
                   script: |
+                      echo "Checking directory structure..."
+                      ls -la /home/${{ secrets.EC2_USER }}/
+
                       if [ ! -d "/home/${{ secrets.EC2_USER }}/dream-app" ]; then
-                        echo "❌ Error: Project files not found on EC2"
+                        echo "❌ Error: dream-app directory not found on EC2"
                         exit 1
                       fi
-                      echo "✅ Project files successfully copied to EC2"
+
+                      echo "Contents of dream-app directory:"
+                      ls -la /home/${{ secrets.EC2_USER }}/dream-app/
+
+                      # Check for required files/directories
+                      required_items=("backend" "frontend" "docker-compose.yaml" "scripts")
+                      missing_items=()
+
+                      for item in "${required_items[@]}"; do
+                        if [ ! -e "/home/${{ secrets.EC2_USER }}/dream-app/$item" ]; then
+                          missing_items+=("$item")
+                        fi
+                      done
+
+                      if [ ${#missing_items[@]} -ne 0 ]; then
+                        echo "❌ Missing items: ${missing_items[*]}"
+                        exit 1
+                      fi
+
+                      echo "All project files successfully copied to EC2"
 
             - name: Ensure Docker is installed on EC2
               uses: appleboy/ssh-action@v1.2.2
@@ -125,18 +175,18 @@ jobs:
 
                       # Check Docker
                       if ! command -v docker &>/dev/null; then
-                        echo "⚠️ Docker not found, installing..."
+                        echo "Docker not found, installing..."
                         curl -fsSL https://get.docker.com | sh
                         sudo usermod -aG docker $USER
                         # Reload group membership
                         newgrp docker || true
                       else
-                        echo "✅ Docker already installed"
+                        echo "Docker already installed"
                       fi
 
                       # Check Docker Compose v2 plugin
                       if ! docker compose version &>/dev/null; then
-                        echo "⚠️ Docker Compose plugin not found, installing..."
+                        echo "Docker Compose plugin not found, installing..."
                         sudo mkdir -p /usr/lib/docker/cli-plugins
 
                         # Get latest version
@@ -146,7 +196,7 @@ jobs:
                           -o /usr/lib/docker/cli-plugins/docker-compose
                         sudo chmod +x /usr/lib/docker/cli-plugins/docker-compose
                       else
-                        echo "✅ Docker Compose already installed"
+                        echo "Docker Compose already installed"
                       fi
 
                       # Verify installations
@@ -162,6 +212,11 @@ jobs:
                   script: |
                       # Create .env file securely without exposing content in logs
                       cd /home/${{ secrets.EC2_USER }}/dream-app
+
+                      # Check if we're in the right directory
+                      pwd
+                      ls -la
+
                       # Create .env file
                       cat > .env << EOF
                       DB_USER=${{ secrets.DATABASE_USER }}
@@ -192,12 +247,26 @@ jobs:
                   script: |
                       cd /home/${{ secrets.EC2_USER }}/dream-app
 
+                      echo "📁 Current directory contents:"
+                      ls -la
+
+                      # Check if docker-compose.yaml exists
+                      if [ ! -f "docker-compose.yaml" ]; then
+                        echo "❌ docker-compose.yaml not found"
+                        exit 1
+                      fi
+
                       # Stop existing containers
                       docker compose down || true
-                      # Pull latest images
-                      docker compose pull
+
+                      # Clean up any orphaned containers
+                      docker system prune -f || true
+
+                      # Pull latest images (if any external images)
+                      docker compose pull || true
 
                       # Build and start containers
+                      echo "Starting Docker containers..."
                       docker compose up -d --build
 
                       # Wait for services to be healthy
@@ -205,6 +274,7 @@ jobs:
                       sleep 30
 
                       # Check container status
+                      echo "Container status:"
                       docker compose ps
 
                       echo "Docker deployment completed"
@@ -264,3 +334,8 @@ jobs:
 
                       echo "Deployment completed successfully!"
                       echo "Application URL: http://${{ needs.terraform.outputs.ec2_public_dns }}"
+
+            - name: Cleanup SSH key
+              if: always()
+              run: |
+                  rm -f /tmp/ssh_key
