@@ -40,7 +40,7 @@ jobs:
               with:
                   aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
                   aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-                  aws-region: us-east-1
+                  aws-region: ${{AWS_REGION}}
 
             - name: Terraform Init & Apply
               run: |
@@ -84,6 +84,9 @@ jobs:
                       cat <<EOF > /home/${{ secrets.EC2_USER }}/dream-app/.env
                       DB_USER=${{ secrets.DATABASE_USER }}
                       DB_PASS=${{ secrets.DATABASE_PASSWD }}
+                      AWS_ACCESS_KEY_ID={{secrets.AWS_ACCESS_KEY_ID}}
+                      AWS_SECRET_ACCESS_KEY={{secrets.AWS_SECRET_ACCESS_KEY}}
+                      AWS_REGION={{secret.AWS_REGION}}
                       EOF
 
             - name: SSH to EC2 and deploy Docker
@@ -106,4 +109,6 @@ jobs:
                   script: |
                       cd /home/${{ secrets.EC2_USER }}/dream-app/scripts
                       chmod u+x certbot-nginx-config.sh
+                      chmod u+x pg-db-backup.sh
+                      chmod u+x save_to_s3.py
                       ./certbot-nginx-config.sh
