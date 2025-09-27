@@ -66,7 +66,7 @@ jobs:
                     echo "❌ Error: EC2 public DNS not found in Terraform outputs"
                     exit 1
                   fi
-                  echo "✅ Terraform outputs validated successfully"
+                  echo "Terraform outputs validated successfully"
 
     deploy:
         needs: terraform
@@ -81,10 +81,10 @@ jobs:
               run: |
                   for i in {1..15}; do
                     if nc -z ${{ needs.terraform.outputs.ec2_public_dns }} 22; then
-                      echo "✅ SSH is ready!"
+                      echo "SSH is ready!"
                       exit 0
                     fi
-                    echo "⏳ Waiting for SSH... (attempt $i/15)"
+                    echo "Waiting for SSH... (attempt $i/15)"
                     sleep 15
                   done
                   echo "❌ EC2 did not become reachable via SSH in time"
@@ -162,7 +162,6 @@ jobs:
                   script: |
                       # Create .env file securely without exposing content in logs
                       cd /home/${{ secrets.EC2_USER }}/dream-app
-
                       # Create .env file
                       cat > .env << EOF
                       DB_USER=${{ secrets.DATABASE_USER }}
@@ -177,8 +176,8 @@ jobs:
 
                       # Verify .env file was created and has content
                       if [ -f ".env" ] && [ -s ".env" ]; then
-                        echo "✅ Environment file created with secure permissions"
-                        echo "📄 .env file size: $(wc -c < .env) bytes"
+                        echo "Environment file created with secure permissions"
+                        echo ".env file size: $(wc -c < .env) bytes"
                       else
                         echo "❌ Error: .env file not created or is empty"
                         exit 1
@@ -195,7 +194,6 @@ jobs:
 
                       # Stop existing containers
                       docker compose down || true
-
                       # Pull latest images
                       docker compose pull
 
@@ -203,13 +201,13 @@ jobs:
                       docker compose up -d --build
 
                       # Wait for services to be healthy
-                      echo "⏳ Waiting for services to start..."
+                      echo "Waiting for services to start..."
                       sleep 30
 
                       # Check container status
                       docker compose ps
 
-                      echo "✅ Docker deployment completed"
+                      echo "Docker deployment completed"
 
             - name: Setup SSL and Scripts
               uses: appleboy/ssh-action@v1.2.2
@@ -221,19 +219,19 @@ jobs:
                       cd /home/${{ secrets.EC2_USER }}/dream-app/scripts
 
                       # Make scripts executable
-                      chmod u+x certbot-nginx-config.sh || { echo "❌ Failed to make certbot script executable"; exit 1; }
-                      chmod u+x pg-db-backup.sh || { echo "❌ Failed to make backup script executable"; exit 1; }
-                      chmod u+x save_to_s3.py || { echo "❌ Failed to make s3 script executable"; exit 1; }
+                      chmod u+x certbot-nginx-config.sh || { echo "Failed to make certbot script executable"; exit 1; }
+                      chmod u+x pg-db-backup.sh || { echo "Failed to make backup script executable"; exit 1; }
+                      chmod u+x save_to_s3.py || { echo "Failed to make s3 script executable"; exit 1; }
 
-                      echo "✅ Scripts made executable"
+                      echo "Scripts made executable"
 
                       # Run certbot configuration
                       if [ -f "./certbot-nginx-config.sh" ]; then
-                        echo "🔒 Running SSL certificate setup..."
+                        echo "Running SSL certificate setup..."
                         ./certbot-nginx-config.sh
-                        echo "✅ SSL setup completed"
+                        echo "SSL setup completed"
                       else
-                        echo "⚠️ Warning: certbot-nginx-config.sh not found"
+                        echo "Warning: certbot-nginx-config.sh not found"
                       fi
 
             - name: Final Health Check
@@ -245,13 +243,13 @@ jobs:
                   script: |
                       cd /home/${{ secrets.EC2_USER }}/dream-app
 
-                      echo "🔍 Final deployment health check..."
+                      echo "Final deployment health check..."
 
                       # Check if containers are running
                       if docker compose ps | grep -q "Up"; then
-                        echo "✅ Containers are running"
+                        echo "Containers are running"
                       else
-                        echo "❌ Some containers are not running"
+                        echo "Some containers are not running"
                         docker compose ps
                         docker compose logs
                         exit 1
@@ -259,10 +257,10 @@ jobs:
 
                       # Check basic connectivity
                       if curl -f http://localhost >/dev/null 2>&1; then
-                        echo "✅ Application is responding"
+                        echo "Application is responding"
                       else
-                        echo "⚠️ Warning: Application not responding on port 80"
+                        echo "Warning: Application not responding on port 80"
                       fi
 
-                      echo "🎉 Deployment completed successfully!"
-                      echo "🌐 Application URL: http://${{ needs.terraform.outputs.ec2_public_dns }}"
+                      echo "Deployment completed successfully!"
+                      echo "Application URL: http://${{ needs.terraform.outputs.ec2_public_dns }}"

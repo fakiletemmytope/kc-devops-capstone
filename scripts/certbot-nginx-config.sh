@@ -72,7 +72,7 @@ sleep 30
 
 # Install SSL certificate
 if install_ssl_certificate; then
-    echo "✅ SSL certificate installed successfully!"
+    echo "SSL certificate installed successfully!"
 
     # NOW MODIFY THE CERTBOT-GENERATED CONFIG
     # Update the nginx config to include Docker proxy
@@ -120,14 +120,14 @@ EOL
     # Test configuration and restart
     sudo nginx -t
     sudo systemctl restart nginx
-    echo "🎉 Nginx configured with SSL and Docker proxy successfully!"
+    echo "Nginx configured with SSL and Docker proxy successfully!"
 else
-    echo "⚠️ SSL setup failed, but Nginx is running with basic config"
+    echo "SSL setup failed, but Nginx is running with basic config"
 fi
 
 # Enable automatic certificate renewal
 sudo systemctl enable certbot.timer
 sudo systemctl start certbot.timer
 
-echo "✅ Certbot auto-renewal timer enabled"
-echo "🔄 You can test renewal with: sudo certbot renew --dry-run"
+echo "Certbot auto-renewal timer enabled"
+echo "You can test renewal with: sudo certbot renew --dry-run"

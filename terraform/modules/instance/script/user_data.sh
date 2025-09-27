@@ -22,7 +22,7 @@ gnupg-agent
 apt-get install -y python3-pip
 pip install boto3 python-dotenv
 
-# Add Docker's official GPG key (modern method)
+# Add Docker's official GPG key
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
 
 # Add Docker repo
@@ -48,7 +48,7 @@ if ! command -v docker &> /dev/null; then
     echo "ERROR: Docker installation failed"
     exit 1
 else
-    echo "✅ Docker installed successfully"
+    echo "Docker installed successfully"
     docker --version
 fi
 
@@ -57,7 +57,7 @@ if ! systemctl is-active --quiet docker; then
     echo "ERROR: Docker service is not running"
     exit 1
 else
-    echo "✅ Docker service is running"
+    echo "Docker service is running"
 fi
 
 # Install Docker Compose v2 plugin
@@ -74,7 +74,7 @@ if ! docker compose version &> /dev/null; then
     echo "ERROR: Docker Compose installation failed"
     exit 1
 else
-    echo "✅ Docker Compose installed successfully"
+    echo "Docker Compose installed successfully"
     docker compose version
 fi
 
@@ -83,7 +83,7 @@ if ! groups ubuntu | grep -q docker; then
     echo "ERROR: ubuntu user not added to docker group"
     exit 1
 else
-    echo "✅ ubuntu user added to docker group"
+    echo "ubuntu user added to docker group"
 fi
 
 
