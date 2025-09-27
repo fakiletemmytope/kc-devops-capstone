@@ -14,7 +14,7 @@ software-properties-common \
 gnupg-agent
 
 # Install python modules
-apt install -y python3-pip
+apt-get install -y python3-pip
 pip install boto3 python-dotenv
 
 # Add Docker’s official GPG key

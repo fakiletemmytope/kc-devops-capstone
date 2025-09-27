@@ -26,6 +26,7 @@ jobs:
         runs-on: ubuntu-latest
         outputs:
             ec2_public_dns: ${{ steps.save-outputs.outputs.ec2_public_dns }}
+            ec2_public_ip: ${{ steps.save-outputs.outputs.ec2_public_ip }}
         steps:
             - name: Checkout repository
               uses: actions/checkout@v4
@@ -40,7 +41,7 @@ jobs:
               with:
                   aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
                   aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-                  aws-region: ${{secrets.AWS_REGION}}
+                  aws-region: ${{ secrets.AWS_REGION }}
 
             - name: Terraform Init & Apply
               run: |
@@ -57,13 +58,37 @@ jobs:
                   echo "VPC_ID=$(terraform -chdir=./terraform output -raw vpc_id)" >> "$GITHUB_ENV"
                   echo "SUBNET_ID=$(terraform -chdir=./terraform output -raw subnet_id)" >> "$GITHUB_ENV"
                   echo "ec2_public_dns=$(terraform -chdir=./terraform output -raw ec2_public_dns)" >> "$GITHUB_OUTPUT"
+                  echo "ec2_public_ip=$(terraform -chdir=./terraform output -raw ec2_public_ip)" >> "$GITHUB_OUTPUT"
+
+            - name: Validate Terraform outputs
+              run: |
+                  if [ -z "${{ steps.save-outputs.outputs.ec2_public_dns }}" ]; then
+                    echo "❌ Error: EC2 public DNS not found in Terraform outputs"
+                    exit 1
+                  fi
+                  echo "✅ Terraform outputs validated successfully"
 
     deploy:
         needs: terraform
         runs-on: ubuntu-latest
+        if: success()
         steps:
             - name: Checkout repository
               uses: actions/checkout@v4
+
+            # Wait for EC2 instance to accept SSH connections
+            - name: Wait for EC2 SSH
+              run: |
+                  for i in {1..15}; do
+                    if nc -z ${{ needs.terraform.outputs.ec2_public_dns }} 22; then
+                      echo "✅ SSH is ready!"
+                      exit 0
+                    fi
+                    echo "⏳ Waiting for SSH... (attempt $i/15)"
+                    sleep 15
+                  done
+                  echo "❌ EC2 did not become reachable via SSH in time"
+                  exit 1
 
             - name: Copy project files to EC2
               uses: appleboy/scp-action@v1.0.0
@@ -71,8 +96,62 @@ jobs:
                   host: ${{ needs.terraform.outputs.ec2_public_dns }}
                   username: ${{ secrets.EC2_USER }}
                   key: ${{ secrets.EC2_SSH_KEY }}
-                  source: "backend/*,frontend/*,docker-compose.yaml, scripts/*"
+                  source: "backend/*,frontend/*,docker-compose.yaml,scripts/*"
                   target: "/home/${{ secrets.EC2_USER }}/dream-app"
+                  timeout: "300s"
+                  command_timeout: "5m"
+
+            - name: Verify file copy
+              uses: appleboy/ssh-action@v1.2.2
+              with:
+                  host: ${{ needs.terraform.outputs.ec2_public_dns }}
+                  username: ${{ secrets.EC2_USER }}
+                  key: ${{ secrets.EC2_SSH_KEY }}
+                  script: |
+                      if [ ! -d "/home/${{ secrets.EC2_USER }}/dream-app" ]; then
+                        echo "❌ Error: Project files not found on EC2"
+                        exit 1
+                      fi
+                      echo "✅ Project files successfully copied to EC2"
+
+            - name: Ensure Docker is installed on EC2
+              uses: appleboy/ssh-action@v1.2.2
+              with:
+                  host: ${{ needs.terraform.outputs.ec2_public_dns }}
+                  username: ${{ secrets.EC2_USER }}
+                  key: ${{ secrets.EC2_SSH_KEY }}
+                  script: |
+                      set -e
+
+                      # Check Docker
+                      if ! command -v docker &>/dev/null; then
+                        echo "⚠️ Docker not found, installing..."
+                        curl -fsSL https://get.docker.com | sh
+                        sudo usermod -aG docker $USER
+                        # Reload group membership
+                        newgrp docker || true
+                      else
+                        echo "✅ Docker already installed"
+                      fi
+
+                      # Check Docker Compose v2 plugin
+                      if ! docker compose version &>/dev/null; then
+                        echo "⚠️ Docker Compose plugin not found, installing..."
+                        sudo mkdir -p /usr/lib/docker/cli-plugins
+
+                        # Get latest version
+                        COMPOSE_VERSION=$(curl -s https://api.github.com/repos/docker/compose/releases/latest | grep -Po '"tag_name": "\K.*?(?=")')
+
+                        curl -SL "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-linux-x86_64" \
+                          -o /usr/lib/docker/cli-plugins/docker-compose
+                        sudo chmod +x /usr/lib/docker/cli-plugins/docker-compose
+                      else
+                        echo "✅ Docker Compose already installed"
+                      fi
+
+                      # Verify installations
+                      docker --version
+                      docker compose version
 
             - name: Create .env on EC2
               uses: appleboy/ssh-action@v1.2.2
@@ -81,15 +160,31 @@ jobs:
                   username: ${{ secrets.EC2_USER }}
                   key: ${{ secrets.EC2_SSH_KEY }}
                   script: |
-                      cat <<EOF > /home/${{ secrets.EC2_USER }}/dream-app/.env
+                      # Create .env file securely without exposing content in logs
+                      cd /home/${{ secrets.EC2_USER }}/dream-app
+
+                      # Create .env file
+                      cat > .env << EOF
                       DB_USER=${{ secrets.DATABASE_USER }}
                       DB_PASS=${{ secrets.DATABASE_PASSWD }}
-                      AWS_ACCESS_KEY_ID={{secrets.AWS_ACCESS_KEY_ID}}
-                      AWS_SECRET_ACCESS_KEY={{secrets.AWS_SECRET_ACCESS_KEY}}
-                      AWS_REGION={{secret.AWS_REGION}}
+                      AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+                      AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+                      AWS_REGION=${{ secrets.AWS_REGION }}
                       EOF
 
-            - name: SSH to EC2 and deploy Docker
+                      # Set proper permissions
+                      chmod 600 .env
+
+                      # Verify .env file was created and has content
+                      if [ -f ".env" ] && [ -s ".env" ]; then
+                        echo "✅ Environment file created with secure permissions"
+                        echo "📄 .env file size: $(wc -c < .env) bytes"
+                      else
+                        echo "❌ Error: .env file not created or is empty"
+                        exit 1
+                      fi
+
+            - name: Deploy with Docker Compose
               uses: appleboy/ssh-action@v1.2.2
               with:
                   host: ${{ needs.terraform.outputs.ec2_public_dns }}
@@ -97,10 +192,26 @@ jobs:
                   key: ${{ secrets.EC2_SSH_KEY }}
                   script: |
                       cd /home/${{ secrets.EC2_USER }}/dream-app
+
+                      # Stop existing containers
+                      docker compose down || true
+
+                      # Pull latest images
                       docker compose pull
+
+                      # Build and start containers
                       docker compose up -d --build
 
-            - name: SSH to EC2 and configure certbot
+                      # Wait for services to be healthy
+                      echo "⏳ Waiting for services to start..."
+                      sleep 30
+
+                      # Check container status
+                      docker compose ps
+
+                      echo "✅ Docker deployment completed"
+
+            - name: Setup SSL and Scripts
               uses: appleboy/ssh-action@v1.2.2
               with:
                   host: ${{ needs.terraform.outputs.ec2_public_dns }}
@@ -108,7 +219,50 @@ jobs:
                   key: ${{ secrets.EC2_SSH_KEY }}
                   script: |
                       cd /home/${{ secrets.EC2_USER }}/dream-app/scripts
-                      chmod u+x certbot-nginx-config.sh
-                      chmod u+x pg-db-backup.sh
-                      chmod u+x save_to_s3.py
-                      ./certbot-nginx-config.sh
+
+                      # Make scripts executable
+                      chmod u+x certbot-nginx-config.sh || { echo "❌ Failed to make certbot script executable"; exit 1; }
+                      chmod u+x pg-db-backup.sh || { echo "❌ Failed to make backup script executable"; exit 1; }
+                      chmod u+x save_to_s3.py || { echo "❌ Failed to make s3 script executable"; exit 1; }
+
+                      echo "✅ Scripts made executable"
+
+                      # Run certbot configuration
+                      if [ -f "./certbot-nginx-config.sh" ]; then
+                        echo "🔒 Running SSL certificate setup..."
+                        ./certbot-nginx-config.sh
+                        echo "✅ SSL setup completed"
+                      else
+                        echo "⚠️ Warning: certbot-nginx-config.sh not found"
+                      fi
+
+            - name: Final Health Check
+              uses: appleboy/ssh-action@v1.2.2
+              with:
+                  host: ${{ needs.terraform.outputs.ec2_public_dns }}
+                  username: ${{ secrets.EC2_USER }}
+                  key: ${{ secrets.EC2_SSH_KEY }}
+                  script: |
+                      cd /home/${{ secrets.EC2_USER }}/dream-app
+
+                      echo "🔍 Final deployment health check..."
+
+                      # Check if containers are running
+                      if docker compose ps | grep -q "Up"; then
+                        echo "✅ Containers are running"
+                      else
+                        echo "❌ Some containers are not running"
+                        docker compose ps
+                        docker compose logs
+                        exit 1
+                      fi
+
+                      # Check basic connectivity
+                      if curl -f http://localhost >/dev/null 2>&1; then
+                        echo "✅ Application is responding"
+                      else
+                        echo "⚠️ Warning: Application not responding on port 80"
+                      fi
+
+                      echo "🎉 Deployment completed successfully!"
+                      echo "🌐 Application URL: http://${{ needs.terraform.outputs.ec2_public_dns }}"
