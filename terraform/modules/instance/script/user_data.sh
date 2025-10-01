@@ -18,6 +18,9 @@ curl \
 software-properties-common \
 gnupg-agent
 
+# Install cron
+apt-get install -y cron
+
 # Install python modules
 apt-get install -y python3-pip
 pip install boto3 python-dotenv

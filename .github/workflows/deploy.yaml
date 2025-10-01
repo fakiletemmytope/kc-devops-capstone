@@ -268,7 +268,7 @@ jobs:
                       chmod u+x certbot-nginx-config.sh || { echo "Failed to make certbot script executable"; exit 1; }
                       chmod u+x pg-db-backup.sh || { echo "Failed to make backup script executable"; exit 1; }
                       chmod u+x save_to_s3.py || { echo "Failed to make s3 script executable"; exit 1; }
-
+                      chmod u+x setup-backup-cron.sh || { echo "Failed to make backup cron script executable"; exit 1; }
                       echo "Scripts made executable"
 
                       # Run certbot configuration
@@ -280,6 +280,14 @@ jobs:
                         echo "Warning: certbot-nginx-config.sh not found"
                       fi
 
+                      # Run cronjob setup
+                      if [ -f "./setup-backup-cron.sh" ]; then
+                        echo "Running cronjob setup..."
+                        ./setup-backup-cron.sh
+                        echo "Cronjob setup completed"
+                      else
+                        echo "Warning: cronjob setup script not found"
+                      fi
             - name: Final Health Check
               uses: appleboy/ssh-action@v1.2.2
               with:
