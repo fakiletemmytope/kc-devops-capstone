@@ -23,13 +23,11 @@ This project demonstrates a production-ready application with:
 The following screenshots demonstrate the successful deployment and automation:
 
 #### Live Website
-![Live Website Deployment](images/live-website-screenshot.png)
 
 <img src="images/live-website-screenshot.png" alt="Live Website Deployment" width="800">
 *The Dream Vacation Destinations application running live on the production server*
 
 #### Automated Backup System
-![Cronjob Configuration](images/cronjob-screenshot.png)
 
 <img src="images/cronjob-screenshot.png" alt="Cronjob Configuration" width="800">
 *Cronjob configuration showing automated PostgreSQL backups running every 3 days at 2:00 AM*
