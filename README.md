@@ -18,6 +18,22 @@ This project demonstrates a production-ready application with:
 
 - **Production URL**: [https://dream.temmytope.online](https://dream.temmytope.online)
 
+### 📸 Live Deployment Screenshots
+
+The following screenshots demonstrate the successful deployment and automation:
+
+#### Live Website
+![Live Website Deployment](images/live-website-screenshot.png)
+
+<img src="images/live-website-screenshot.png" alt="Live Website Deployment" width="800">
+*The Dream Vacation Destinations application running live on the production server*
+
+#### Automated Backup System
+![Cronjob Configuration](images/cronjob-screenshot.png)
+
+<img src="images/cronjob-screenshot.png" alt="Cronjob Configuration" width="800">
+*Cronjob configuration showing automated PostgreSQL backups running every 3 days at 2:00 AM*
+
 ## 📁 Project Structure
 
 ```
@@ -207,6 +223,8 @@ The project includes a comprehensive backup system that:
 tail -f /var/log/pg-backup.log
 ```
 
+**Note**: The cronjob is automatically configured during deployment and runs every 3 days at 2:00 AM as shown in the server screenshots above.
+
 ## 🔒 Security Features
 
 - **SSL/TLS**: Automated certificate management with Let's Encrypt
@@ -257,6 +275,7 @@ terraform validate
 - Check application health: `docker-compose ps`
 - Review CloudWatch metrics
 - Update SSL certificates (automated)
+- Verify cronjob status: `crontab -l` (as shown in deployment screenshots)
 
 ### Troubleshooting
 - **Container Issues**: `docker-compose logs`
@@ -343,7 +362,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 👨‍💻 Author
 
-**Temitope Oladele**
+**Temitope Fakile**
 - GitHub: [@temmytope](https://github.com/temmytope)
 - LinkedIn: [Temitope Fakile](https://linkedin.com/in/temitopefakile)
 
