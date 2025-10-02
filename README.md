@@ -361,7 +361,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 👨‍💻 Author
 
 **Temitope Fakile**
-- GitHub: [@temmytope](https://github.com/temmytope)
+- GitHub: [@temmytope](https://github.com/fakiletemmytope)
 - LinkedIn: [Temitope Fakile](https://linkedin.com/in/temitopefakile)
 
 ## 🙏 Acknowledgments
